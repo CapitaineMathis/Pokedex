@@ -9,12 +9,13 @@ const apiRouter = express.Router();
 // init all routes
 const routesPath = path.join(__dirname, 'routes');
 
+// {c'est mal fait je devrais séparer la lecture des fichier (routes) et de express.js oups}
 fs.readdir(routesPath, (err, files) => {
     if (err) {
-        console.error("Erreur lors de la lecture du dossier routes:", err);
+        console.error(err);
         return;
     }
-
+    // 
     files.forEach(file => {
         if (file.startsWith("._")) return;
 
@@ -25,6 +26,15 @@ fs.readdir(routesPath, (err, files) => {
             
             apiRouter.all(routePath, handler);
         }
+    });
+
+    // 
+    app.use((req, res, next) => {
+        if (!limitRequests(req, 10, 60000)) {
+            console.log(`Too many requests from IP: ${req}`);
+            return res.status(429).json({ message: 'Too many requests. Please try again later.' });
+        }
+        next();
     });
 
     app.use('/api/v1', apiRouter);
@@ -43,3 +53,31 @@ fs.readdir(routesPath, (err, files) => {
 
 
 
+function limitRequests(req, maxRequests = 10, timeWindow = 60000) {
+    const ip = req.ip; // User IP
+    let requestAuthorized = true; // dose the request can go ?
+    const currentTime = Date.now(); // timestamp 
+
+    // dict for all the user
+    if (!req.app.locals.requestCounts) {
+        req.app.locals.requestCounts = {};
+    }
+    // adding the user IP in the dict
+    if (!req.app.locals.requestCounts[ip]) {
+        req.app.locals.requestCounts[ip] = [];
+    }
+    // if the timestamp is too old delet it.
+    req.app.locals.requestCounts[ip] = req.app.locals.requestCounts[ip].filter(
+        (timestamp) => currentTime - timestamp < timeWindow
+    );
+
+
+    if (req.app.locals.requestCounts[ip].length >= maxRequests) {
+        requestAuthorized = false;
+    }else{
+        // on ajoute le **timestamp** de la requête dans le tableau
+        req.app.locals.requestCounts[ip].push(currentTime);
+    }
+
+    return requestAuthorized;
+}
