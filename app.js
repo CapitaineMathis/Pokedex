@@ -15,7 +15,7 @@ fs.readdir(routesPath, (err, files) => {
         console.error(err);
         return;
     }
-    // 
+    // get all routes file
     files.forEach(file => {
         if (file.startsWith("._")) return;
 
@@ -28,7 +28,7 @@ fs.readdir(routesPath, (err, files) => {
         }
     });
 
-    // 
+    // add a request limit
     app.use((req, res, next) => {
         if (!limitRequests(req, 10, 60000)) {
             console.log(`Too many requests from IP: ${req}`);
@@ -37,12 +37,15 @@ fs.readdir(routesPath, (err, files) => {
         next();
     });
 
+    // redirect to the right route
     app.use('/api/v1', apiRouter);
 
+    // if not send a 404 error
     app.use((req, res) => {
         res.status(404).type('text/plain').send('404 Not Found');
     });
 
+    // start the app
     app.listen(PORT, () => {
         console.log(`http://localhost:${PORT}`);
     });
@@ -52,7 +55,7 @@ fs.readdir(routesPath, (err, files) => {
 
 
 
-
+// function for limitating the request.
 function limitRequests(req, maxRequests = 10, timeWindow = 60000) {
     const ip = req.ip; // User IP
     let requestAuthorized = true; // dose the request can go ?
